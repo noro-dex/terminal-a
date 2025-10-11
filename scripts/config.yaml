@@ -1,0 +1,92 @@
+# Terminal TUI Configuration
+# This configuration file is used by the terminal application for TUI mode
+
+# API Configuration
+staging_url: "https://xxx.xxxx.com"
+local_api_base: "http://localhost:9899"
+use_external_api: false
+
+# Connection Configuration
+use_ssh: true
+use_domain: false
+
+# SSH Configuration
+ssh:
+  host: "xxx.sshhost.com"
+  port: 11111
+  user: "defined_user"
+  local_port: 9899
+  key_path: "~/.ssh/id_rsa"
+
+# Test Configuration
+timeout: "5m"
+verbose: true
+show_logs: true
+max_retries: 3
+health_timeout: "60s"
+
+# Key Management
+keys_dir: "./scripts/keys"
+example_mnemonic_file: "./scripts/keys/example_mnemonic"
+mnemonics_file: "./scripts/test_mnmeonic.txt"  # Our custom mnemonic file
+morm_signer_bin: "./build/morm_signer"
+
+# Market Configuration - markets will be loaded dynamically from API
+# No hardcoded markets - load from API on startup
+
+# Autonomous Trading Configuration
+autonomous_trading:
+  data_path: "./autonomous_trading_data.json"
+  default_preset: "default"
+  presets:
+    default:
+      name: "Default Preset"
+      base_quantity: 1.0
+      max_double_downs: 2
+      double_down_trigger: 10
+      risk_percentage: 0.01
+      max_positions: 10
+      update_interval: 60
+      description: "A basic preset for testing."
+    stazero:
+      name: "StaZero Preset"
+      base_quantity: 0.1
+      max_double_downs: 3
+      double_down_trigger: 2
+      risk_percentage: 5.0
+      max_positions: 5
+      update_interval: 5
+      description: "StaZero autonomous trading configuration with double-down mechanics"
+    starb:
+      name: "StaArb Enhanced Preset"
+      base_quantity: 0.1
+      max_double_downs: 3
+      double_down_trigger: 2
+      risk_percentage: 5.0
+      max_positions: 5
+      update_interval: 5
+      description: "Enhanced autonomous trading with bidirectional support and advanced risk management"
+      leverage_factor: 1.0
+      volatility_threshold: 1.5
+      correlation_limit: 0.7
+      profit_target: 10.0
+      trailing_stop: 5.0
+      time_based_exit: 60
+      global_exit_threshold: 15.0
+      directional_balance: 0.6
+      enable_random_orders: true
+      random_order_interval: 2
+      random_order_quantity: 0.05
+      random_order_price_range: 3.0
+      random_order_side_ratio: 0.5
+      max_random_orders_per_cycle: 3
+
+# Logging Configuration
+log_dir: "./logs"
+reports_dir: "test-results"
+
+# Performance Configuration
+max_concurrent_operations: 10
+
+# TUI Configuration
+tui_ready_mode: true  # Use TUI-Ready architecture for better reliability
