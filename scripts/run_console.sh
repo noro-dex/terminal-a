@@ -14,11 +14,12 @@ RESET='\033[0m'
 WORKSPACE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BINARY_PATH="$WORKSPACE_ROOT/bin/terminal"
 CONFIG_FILE="$WORKSPACE_ROOT/scripts/config.yaml"
+CONFIG_EXTERNAL="$WORKSPACE_ROOT/scripts/external.yaml"
 MNEMONIC_FILE="$WORKSPACE_ROOT/scripts/test_mnmeonic.txt"
 MORM_SIGNER_BIN="$WORKSPACE_ROOT/build/morm_signer"
 
-# Default values
-CATEGORY="simulation"
+# Default values simulation|auth|trading|performance|all
+CATEGORY="auth"
 TIMEOUT="5m"
 VERBOSE=false
 REBUILD=false
@@ -214,12 +215,10 @@ check_required_binaries() {
 launch_console() {
     print_info "Launching Terminal Console mode..."
     print_info "Category: $CATEGORY, Timeout: $TIMEOUT"
-    
-    # Change to workspace root
-    cd "$WORKSPACE_ROOT" || exit 1
-    
+        
     # Prepare command arguments
-    CMD_ARGS=("-category" "$CATEGORY" "-timeout" "$TIMEOUT")
+    # Convert absolute path to relative path from workspace root for config file
+    CMD_ARGS=("-config" "$CONFIG_EXTERNAL" "-category" "$CATEGORY" "-timeout" "$TIMEOUT")
     
     # Add verbose flag if requested
     if [[ $VERBOSE == true ]]; then

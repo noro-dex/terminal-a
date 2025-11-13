@@ -12,7 +12,7 @@ RESET='\033[0m'
 
 # Variables
 WORKSPACE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BINARY_PATH="$WORKSPACE_ROOT/build/terminal"
+BINARY_PATH="$WORKSPACE_ROOT/bin/terminal"
 CONFIG_FILE="$WORKSPACE_ROOT/scripts/config.yaml"
 MNEMONIC_FILE="$WORKSPACE_ROOT/scripts/test_mnmeonic.txt"
 MORM_SIGNER_BIN="$WORKSPACE_ROOT/build/morm_signer"
@@ -152,7 +152,17 @@ validate_environment() {
     fi
     
     # Count available mnemonics
+    # Check if file has content (handles files without trailing newline)
+    if [[ ! -s "$MNEMONIC_FILE" ]]; then
+        print_error "No mnemonics found in $MNEMONIC_FILE"
+        exit 1
+    fi
+    # Count lines, but ensure we count at least 1 if file has content
     MNEMONIC_COUNT=$(wc -l < "$MNEMONIC_FILE" 2>/dev/null || echo "0")
+    # If wc -l returns 0 but file has content, count it as 1 line
+    if [[ $MNEMONIC_COUNT -eq 0 ]] && [[ -s "$MNEMONIC_FILE" ]]; then
+        MNEMONIC_COUNT=1
+    fi
     if [[ $MNEMONIC_COUNT -eq 0 ]]; then
         print_error "No mnemonics found in $MNEMONIC_FILE"
         exit 1
@@ -211,7 +221,9 @@ launch_tui() {
     # Prepare command arguments (trim whitespace to prevent parse errors)
     USERS=$(echo "$USERS" | xargs)
     INTERVAL=$(echo "$INTERVAL" | xargs)
-    CMD_ARGS=("-tui" "-users" "$USERS" "-interval" "$INTERVAL")
+    # Convert absolute path to relative path from workspace root for config file
+    CONFIG_RELATIVE="${CONFIG_FILE#$WORKSPACE_ROOT/}"
+    CMD_ARGS=("-config" "$CONFIG_RELATIVE" "-tui" "-users" "$USERS" "-interval" "$INTERVAL")
     
     # Add verbose flag if requested
     if [[ $VERBOSE == true ]]; then
@@ -225,16 +237,71 @@ launch_tui() {
     export REPORTS_DIR="$REPORTS_DIR"
     export MORM_SIGNER_BIN="$MORM_SIGNER_BIN"
     
+    # Set TERM for TUI compatibility (required for termui)
+    export TERM=xterm-256color
+    
     print_info "Command: $BINARY_PATH ${CMD_ARGS[*]}"
     echo ""
     
     # TUI implementation is now fully integrated
     print_info "YAML config file loaded from: $CONFIG_FILE"
     print_info "TUI implementation is ready and integrated"
+    print_info "Terminal type: $TERM"
     echo ""
     
-    # Launch the application
-    exec "$BINARY_PATH" "${CMD_ARGS[@]}"
+    # CRITICAL FIX: Force PTY allocation for termui event polling on macOS
+    # termui's PollEvents() requires a fully interactive pseudo-terminal (PTY)
+    # macOS Terminal.app may appear interactive but still have PTY issues
+    # Research shows macOS 'script' command is more reliable for Go TUIs
+    # Always use 'script' on macOS for consistent PTY allocation
+    
+    # Check OS type
+    if [[ "$(uname)" == "Darwin" ]]; then
+        # macOS: Always use script for reliable PTY allocation
+        # This ensures termui event polling works correctly regardless of shell context
+        print_warning "macOS detected - forcing PTY allocation with 'script' for termui compatibility"
+        print_info "This ensures reliable event polling (keyboard input, resizes) on macOS"
+        
+        # Check if 'script' command is available
+        if ! command -v script &> /dev/null; then
+            print_error "'script' command not found on macOS."
+            print_error "This is unusual - 'script' should be available by default."
+            print_error "Try running directly in Terminal.app:"
+            print_error "  export TERM=xterm-256color"
+            print_error "  $BINARY_PATH ${CMD_ARGS[*]}"
+            exit 1
+        fi
+        
+        # macOS script syntax: script -q /dev/null command args
+        # -q: quiet mode (suppress script's own output)
+        # /dev/null: suppress typescript file creation
+        # Note: macOS script doesn't support -c option like Linux
+        # This forces clean PTY allocation for termui's PollEvents()
+        print_info "Using: script -q /dev/null $BINARY_PATH ${CMD_ARGS[*]}"
+        exec script -q /dev/null "$BINARY_PATH" "${CMD_ARGS[@]}"
+    else
+        # Linux/Other: Check interactivity, use script if needed
+        if [[ -t 0 ]] && [[ -t 1 ]] && [[ -t 2 ]]; then
+            # Interactive terminal - run directly
+            print_info "Running in interactive terminal - launching directly"
+            exec "$BINARY_PATH" "${CMD_ARGS[@]}"
+        else
+            # Non-interactive - use script to allocate PTY
+            print_warning "Not in fully interactive terminal - using 'script' to allocate PTY"
+            print_info "This ensures termui event polling works correctly"
+            
+            if ! command -v script &> /dev/null; then
+                print_error "'script' command not found."
+                print_error "Please run in an interactive terminal:"
+                print_error "  export TERM=xterm-256color"
+                print_error "  $BINARY_PATH ${CMD_ARGS[*]}"
+                exit 1
+            fi
+            
+            # Linux script syntax: script -q -c "command args" /dev/null
+            exec script -q -c "$BINARY_PATH ${CMD_ARGS[*]}" /dev/null
+        fi
+    fi
 }
 
 # Parse command line arguments
